@@ -33,6 +33,7 @@ def _cut(cut_id: int, start: float, dur: float, mode: str = "strict", **kw) -> C
         max_duration=kw.get("max_duration", dur * 2.5),
         keep_audio=kw.get("keep_audio", True),
         visual=kw.get("visual", _vis()),
+        semantic_vector=list(kw.get("semantic_vector", [])),
     )
 
 
@@ -119,14 +120,26 @@ def scenario_forced_reuse() -> tuple[Template, AssetDB]:
 
 
 def scenario_obvious_winner() -> tuple[Template, AssetDB]:
-    """One segment matches slot 1's vector; the other is orthogonal garbage.
-    The matching segment MUST win slot 1 (answer forced by construction)."""
-    t = happy_template()
+    """Slot 1 wants vector [1,0,0,0,0]; one segment matches it, the other is
+    orthogonal garbage. The matching segment MUST win slot 1 (forced by cosine).
+    Total source (6.0s) clears the RULE 7 floor so we actually allocate."""
+    t = Template(
+        template_id="t_winner",
+        total_duration=4.0,
+        bpm=120,
+        beat_timestamps=[0.0, 1.5, 4.0],
+        cuts=[
+            _cut(1, 0.0, 1.5, "strict", semantic_vector=[1, 0, 0, 0, 0],
+                 visual=_vis("close_up", ("food",), "static")),
+            _cut(2, 1.5, 2.5, "strict", semantic_vector=[0, 0, 0, 0, 1],
+                 visual=_vis("wide", ("sky",), "static")),
+        ],
+    )
     a = AssetDB(
         assets=[
             Asset(clip_id="c", file_name="c.mp4", duration=10.0, segments=[
-                _seg("match", 1.5, [1, 0, 0, 0, 0], shot="close_up"),
-                _seg("garbage", 2.5, [0, 0, 0, 0, 1], shot="wide", objects=("sky",)),
+                _seg("match", 3.0, [1, 0, 0, 0, 0], shot="close_up", objects=("food",)),
+                _seg("garbage", 3.0, [0, 0, 0, 0, 1], shot="wide", objects=("sky",)),
             ]),
         ]
     )

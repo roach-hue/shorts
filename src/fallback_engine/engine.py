@@ -1,13 +1,14 @@
 """Core Engine entry point (Agent A -> Agent B -> Fallback).
 
-STEP 3 (TRUNK): greedy slot-fixed allocation with Soft Penalty reuse.
-
-Semantic scoring is DEFERRED: Cut has no semantic_vector yet, so the semantic
-axis contributes 0 for now (see CLAUDE.md rule 3). Only motion + duration fit
-drive Agent A's greedy choice. Slot order is absolute (RULE 4): cuts are filled
-in template order and each strict slot is pinned to its template beat (RULE 8/12).
+STEP 3b: greedy slot-fixed allocation scoring on 3 axes -- semantic (RULE 6,
+cosine over the cut/segment vectors), motion fit, and duration fit -- with Soft
+Penalty reuse (RULE 10). Slot order is absolute (RULE 4): cuts are filled in
+template order and each strict slot is pinned to its template beat (RULE 8/12).
+When a cut carries no semantic_vector the semantic axis simply contributes 0.
 """
 from __future__ import annotations
+
+import math
 
 from . import invariants
 from .config import Thresholds
@@ -45,14 +46,29 @@ def _duration_fit(cut, seg) -> float:
     return seg.duration / cut.duration
 
 
-def _score(cut, seg, used_ids: set[str], cfg: Thresholds) -> float:
-    """Weighted fit score for placing `seg` into `cut`.
+def _semantic_fit(cut, seg) -> float:
+    """Cosine similarity between the cut's required-visual vector and the segment
+    vector (RULE 6), clamped to [0, 1]. 0 when either side has no usable vector."""
+    cv, sv = cut.semantic_vector, seg.semantic_vector
+    if not cv or not sv or len(cv) != len(sv):
+        return 0.0
+    dot = sum(a * b for a, b in zip(cv, sv))
+    ncv = math.sqrt(sum(a * a for a in cv))
+    nsv = math.sqrt(sum(b * b for b in sv))
+    if ncv == 0.0 or nsv == 0.0:
+        return 0.0
+    return max(0.0, dot / (ncv * nsv))
 
-    Semantic axis deferred (Cut has no vector yet) -> contributes 0. Reused
-    segments are softly penalised (RULE 10) but never permanently discarded.
+
+def _score(cut, seg, used_ids: set[str], cfg: Thresholds) -> float:
+    """Weighted 3-axis fit score for placing `seg` into `cut` (RULE 6 weights:
+    semantic 50% / motion 30% / duration 20%).
+
+    Reused segments are softly penalised (RULE 10) but never permanently discarded.
     """
     base = (
-        cfg.motion_weight * _motion_fit(cut, seg)
+        cfg.semantic_weight * _semantic_fit(cut, seg)
+        + cfg.motion_weight * _motion_fit(cut, seg)
         + cfg.duration_weight * _duration_fit(cut, seg)
     )
     if seg.seg_id in used_ids:

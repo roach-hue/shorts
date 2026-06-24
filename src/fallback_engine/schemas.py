@@ -59,6 +59,9 @@ class Cut(BaseModel):
     max_duration: float
     keep_audio: bool = True  # RULE 9
     visual: Visual
+    # STEP 3b: required-visual embedding for Agent A cosine (RULE 6).
+    # Empty list => semantic axis simply contributes 0 (backward compatible).
+    semantic_vector: list[float] = Field(default_factory=list)
     audio: Optional[str] = None  # descriptive only; timing comes from beat_timestamps (1)
     subtitle: Optional[Subtitle] = None
 

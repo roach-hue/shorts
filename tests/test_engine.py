@@ -1,11 +1,8 @@
 """Engine behaviour tests.
 
-TRUNK (this task): forced reuse + source-insufficient reject must pass.
-BRANCH (next task): obvious-winner needs a semantic_vector on Cut (a schema/contract
-decision) -> skipped until that decision is made. See CLAUDE.md rule 3/4.
+Forced-by-construction scenarios: source-insufficient reject (RULE 7), forced
+reuse / bookend (RULE 10), and semantic obvious-winner (RULE 6 cosine).
 """
-import pytest
-
 from fallback_engine.config import Thresholds
 from fallback_engine.engine import assemble
 from fallback_engine.invariants import check_all
@@ -35,9 +32,9 @@ def test_source_insufficient_rejects():
     assert result.code == "SOURCE_INSUFFICIENT"
 
 
-@pytest.mark.skip(reason="STEP 3b (next task): needs a Cut.semantic_vector decision for Agent A cosine")
 def test_obvious_winner_lands_in_slot_one():
     t, a = scenario_obvious_winner()
     result = assemble(t, a, CFG)
     assert isinstance(result, EditInstruction)
-    assert result.clips[0].seg_id == "match"  # answer forced by construction
+    assert check_all(t, a, result, CFG) == []
+    assert result.clips[0].seg_id == "match"  # forced by cosine (semantic axis)
