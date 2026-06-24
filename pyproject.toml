@@ -1,0 +1,11 @@
+[project]
+name = "fallback-engine"
+version = "0.1.0"
+description = "Domain-agnostic semantic Fallback allocation engine (Core)"
+requires-python = ">=3.11"
+dependencies = ["pydantic>=2.7"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"

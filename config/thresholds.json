@@ -1,0 +1,7 @@
+{
+  "beat_tolerance_sec": 0.1,
+  "soft_penalty_factor": 0.7,
+  "duration_overrun_hard_cutoff": 2.5,
+  "score_weights": { "semantic": 0.5, "motion": 0.3, "duration": 0.2 },
+  "min_source_total_sec": 5.0
+}

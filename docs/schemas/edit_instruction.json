@@ -1,0 +1,82 @@
+{
+  "total_duration": 43.2,
+  "is_original_sync_broken": true,
+  "bgm": {
+    "type": "user_upload",
+    "file": "bgm_track.mp3",
+    "volume": 0.8
+  },
+  "clips": [
+    {
+      "slot_id": 1,
+      "source_file": "video_001.mp4",
+      "seg_id": "clip_A_seg_1",
+      "in": 3.2,
+      "out": 4.7,
+      "timeline_position": 0.0,
+      "speed_ramp": [
+        {
+          "from": 0.0,
+          "to": 1.0,
+          "speed": 1.0
+        },
+        {
+          "from": 1.0,
+          "to": 1.5,
+          "speed": 1.25
+        }
+      ],
+      "keep_audio": true,
+      "fallback_used": false,
+      "re_sync_applied": false,
+      "subtitle": {
+        "text": "여기 정말 미쳤는데요?",
+        "position": "top_center",
+        "in": 0.0,
+        "out": 1.5,
+        "style": {
+          "is_highlighted": true,
+          "animation": "pop_up"
+        }
+      }
+    },
+    {
+      "slot_id": 2,
+      "source_file": "video_002.mp4",
+      "seg_id": "clip_B_seg_0",
+      "in": 0.0,
+      "out": 5.5,
+      "timeline_position": 1.5,
+      "speed_ramp": [
+        {
+          "from": 0.0,
+          "to": 5.5,
+          "speed": 1.0
+        }
+      ],
+      "keep_audio": false,
+      "fallback_used": false,
+      "re_sync_applied": true,
+      "subtitle": null
+    },
+    {
+      "slot_id": 3,
+      "source_file": "video_001.mp4",
+      "seg_id": "clip_A_seg_0",
+      "in": 0.0,
+      "out": 3.2,
+      "timeline_position": 7.4,
+      "speed_ramp": [
+        {
+          "from": 0.0,
+          "to": 3.2,
+          "speed": 1.0
+        }
+      ],
+      "keep_audio": false,
+      "fallback_used": true,
+      "re_sync_applied": false,
+      "subtitle": null
+    }
+  ]
+}

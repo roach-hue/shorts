@@ -1,0 +1,130 @@
+"""Core Engine entry point (Agent A -> Agent B -> Fallback).
+
+STEP 3 (TRUNK): greedy slot-fixed allocation with Soft Penalty reuse.
+
+Semantic scoring is DEFERRED: Cut has no semantic_vector yet, so the semantic
+axis contributes 0 for now (see CLAUDE.md rule 3). Only motion + duration fit
+drive Agent A's greedy choice. Slot order is absolute (RULE 4): cuts are filled
+in template order and each strict slot is pinned to its template beat (RULE 8/12).
+"""
+from __future__ import annotations
+
+from . import invariants
+from .config import Thresholds
+from .schemas import AssetDB, EditClip, EditInstruction, Reject, Template
+
+# Coarse motion targets per template motion label. seg.motion_score is in [0, 1].
+_MOTION_TARGET = {
+    "static": 0.0,
+    "medium": 0.5,
+    "high": 1.0,
+}
+
+
+def _motion_target(label: str) -> float:
+    """Map a template motion label to a target motion_score in [0, 1]."""
+    return _MOTION_TARGET.get((label or "static").lower(), 0.5)
+
+
+def _motion_fit(cut, seg) -> float:
+    """Closeness of seg.motion_score to the cut's desired motion (1.0 == exact)."""
+    target = _motion_target(cut.visual.motion)
+    return 1.0 - abs(seg.motion_score - target)
+
+
+def _duration_fit(cut, seg) -> float:
+    """Can the segment cover the slot? >= slot duration -> 1.0, else proportional.
+
+    A segment shorter than the slot can still be used (speed-compressed), so it is
+    penalised proportionally rather than excluded.
+    """
+    if cut.duration <= 0:
+        return 1.0
+    if seg.duration >= cut.duration:
+        return 1.0
+    return seg.duration / cut.duration
+
+
+def _score(cut, seg, used_ids: set[str], cfg: Thresholds) -> float:
+    """Weighted fit score for placing `seg` into `cut`.
+
+    Semantic axis deferred (Cut has no vector yet) -> contributes 0. Reused
+    segments are softly penalised (RULE 10) but never permanently discarded.
+    """
+    base = (
+        cfg.motion_weight * _motion_fit(cut, seg)
+        + cfg.duration_weight * _duration_fit(cut, seg)
+    )
+    if seg.seg_id in used_ids:
+        base *= cfg.soft_penalty_factor
+    return base
+
+
+def assemble(
+    template: Template,
+    asset_db: AssetDB,
+    cfg: "Thresholds | None" = None,
+) -> "EditInstruction | Reject":
+    """Assemble user segments into the template's slots (Agent A, greedy)."""
+    cfg = cfg or Thresholds.load()
+
+    # RULE 7: abuse floor -- not enough total source to honestly fill anything.
+    if invariants.is_source_insufficient(asset_db, cfg):
+        total = invariants.total_segment_seconds(asset_db)
+        return Reject(
+            code="SOURCE_INSUFFICIENT",
+            reason=(
+                f"total source {total:.3f}s is below the minimum "
+                f"{cfg.min_source_total_sec:.3f}s required to assemble a fallback"
+            ),
+        )
+
+    # Flatten every segment together with its owning asset (for source_file).
+    candidates = [
+        (asset, seg) for asset in asset_db.assets for seg in asset.segments
+    ]
+
+    used_ids: set[str] = set()
+    clips: list[EditClip] = []
+
+    # RULE 4: slots filled strictly in template order; pick the best segment per slot.
+    for cut in template.cuts:
+        best_asset, best_seg, best_score = None, None, None
+        for asset, seg in candidates:
+            s = _score(cut, seg, used_ids, cfg)
+            if best_score is None or s > best_score:
+                best_asset, best_seg, best_score = asset, seg, s
+
+        # RULE 8/12: fill the slot to its exact duration, pinned to the beat.
+        in_point = best_seg.in_
+        available = best_seg.out - best_seg.in_
+        if available >= cut.duration:
+            # Smart Trim: take exactly the slot duration at native speed.
+            out_point = best_seg.in_ + cut.duration
+            speed = 1.0
+        else:
+            # Compress with speed so rendered length == slot duration.
+            out_point = best_seg.out
+            speed = available / cut.duration
+
+        clips.append(
+            EditClip(
+                slot_id=cut.cut_id,
+                source_file=best_asset.file_name,
+                seg_id=best_seg.seg_id,
+                in_=in_point,
+                out=out_point,
+                timeline_position=cut.in_,  # strict: pinned to template beat
+                speed=speed,
+                keep_audio=cut.keep_audio,
+                fallback_used=False,
+                re_sync_applied=False,
+            )
+        )
+        used_ids.add(best_seg.seg_id)
+
+    return EditInstruction(
+        total_duration=template.total_duration,
+        is_original_sync_broken=False,
+        clips=clips,
+    )

@@ -1,0 +1,119 @@
+{
+  "assets": [
+    {
+      "clip_id": "clip_A",
+      "file_name": "video_001.mp4",
+      "duration": 8.5,
+      "audio_waveform": [
+        0.12,
+        0.45,
+        0.33,
+        0.78,
+        0.91
+      ],
+      "segments": [
+        {
+          "seg_id": "clip_A_seg_0",
+          "in": 0.0,
+          "out": 3.2,
+          "duration": 3.2,
+          "visual": {
+            "shot_type": "wide",
+            "objects": [
+              "restaurant_exterior"
+            ],
+            "motion": "static"
+          },
+          "motion_score": 0.1,
+          "semantic_vector": [
+            0.12,
+            -0.34,
+            0.87,
+            0.45,
+            -0.22
+          ]
+        },
+        {
+          "seg_id": "clip_A_seg_1",
+          "in": 3.2,
+          "out": 8.5,
+          "duration": 5.3,
+          "visual": {
+            "shot_type": "close_up",
+            "objects": [
+              "food",
+              "boiling"
+            ],
+            "motion": "medium"
+          },
+          "motion_score": 0.6,
+          "semantic_vector": [
+            0.45,
+            0.21,
+            -0.63,
+            0.88,
+            0.11
+          ]
+        }
+      ]
+    },
+    {
+      "clip_id": "clip_B",
+      "file_name": "video_002.mp4",
+      "duration": 12.0,
+      "audio_waveform": [
+        0.05,
+        0.08,
+        0.12,
+        0.09,
+        0.07
+      ],
+      "segments": [
+        {
+          "seg_id": "clip_B_seg_0",
+          "in": 0.0,
+          "out": 5.5,
+          "duration": 5.5,
+          "visual": {
+            "shot_type": "close_up",
+            "objects": [
+              "food",
+              "grilling"
+            ],
+            "motion": "high"
+          },
+          "motion_score": 0.85,
+          "semantic_vector": [
+            0.67,
+            0.43,
+            -0.21,
+            0.55,
+            0.32
+          ]
+        },
+        {
+          "seg_id": "clip_B_seg_1",
+          "in": 5.5,
+          "out": 12.0,
+          "duration": 6.5,
+          "visual": {
+            "shot_type": "pov",
+            "objects": [
+              "food",
+              "eating"
+            ],
+            "motion": "medium"
+          },
+          "motion_score": 0.5,
+          "semantic_vector": [
+            0.33,
+            -0.12,
+            0.74,
+            0.29,
+            -0.45
+          ]
+        }
+      ]
+    }
+  ]
+}
