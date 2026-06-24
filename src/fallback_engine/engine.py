@@ -76,25 +76,10 @@ def _score(cut, seg, used_ids: set[str], cfg: Thresholds) -> float:
     return base
 
 
-def assemble(
-    template: Template,
-    asset_db: AssetDB,
-    cfg: "Thresholds | None" = None,
-) -> "EditInstruction | Reject":
-    """Assemble user segments into the template's slots (Agent A, greedy)."""
-    cfg = cfg or Thresholds.load()
-
-    # RULE 7: abuse floor -- not enough total source to honestly fill anything.
-    if invariants.is_source_insufficient(asset_db, cfg):
-        total = invariants.total_segment_seconds(asset_db)
-        return Reject(
-            code="SOURCE_INSUFFICIENT",
-            reason=(
-                f"total source {total:.3f}s is below the minimum "
-                f"{cfg.min_source_total_sec:.3f}s required to assemble a fallback"
-            ),
-        )
-
+def _agent_a_assemble(
+    template: Template, asset_db: AssetDB, cfg: Thresholds
+) -> EditInstruction:
+    """Agent A: greedy, slot-fixed allocation (RULE 4) using the 3-axis score."""
     # Flatten every segment together with its owning asset (for source_file).
     candidates = [
         (asset, seg) for asset in asset_db.assets for seg in asset.segments
@@ -112,7 +97,6 @@ def assemble(
                 best_asset, best_seg, best_score = asset, seg, s
 
         # RULE 8/12: fill the slot to its exact duration, pinned to the beat.
-        in_point = best_seg.in_
         available = best_seg.out - best_seg.in_
         if available >= cut.duration:
             # Smart Trim: take exactly the slot duration at native speed.
@@ -128,7 +112,7 @@ def assemble(
                 slot_id=cut.cut_id,
                 source_file=best_asset.file_name,
                 seg_id=best_seg.seg_id,
-                in_=in_point,
+                in_=best_seg.in_,
                 out=out_point,
                 timeline_position=cut.in_,  # strict: pinned to template beat
                 speed=speed,
@@ -144,3 +128,78 @@ def assemble(
         is_original_sync_broken=False,
         clips=clips,
     )
+
+
+def agent_b_validate(
+    template: Template, edit: EditInstruction, cfg: Thresholds
+) -> list[str]:
+    """Agent B: 1-Hit rhythm fact-check on Agent A's candidate (RULE 12).
+
+    Strict slots must transition on a template beat (+/- beat_tolerance); flexible
+    slots bypass the beat check. The assembled timeline must also reach the template
+    runtime. Returns a list of violations (empty == accepted).
+    """
+    violations: list[str] = []
+    cut_by_id = {c.cut_id: c for c in template.cuts}
+    beats = template.beat_timestamps
+
+    for clip in edit.clips:
+        cut = cut_by_id.get(clip.slot_id)
+        if cut is None or cut.slot_mode != "strict":
+            continue  # flexible mode: beat check bypassed (RULE 12)
+        if beats:
+            nearest = min(abs(clip.timeline_position - b) for b in beats)
+            if nearest > cfg.beat_tolerance_sec:
+                violations.append(
+                    f"AgentB RULE12: slot {clip.slot_id} transition "
+                    f"{clip.timeline_position:.3f}s is {nearest:.3f}s off the nearest "
+                    f"beat (> {cfg.beat_tolerance_sec}s)"
+                )
+
+    if edit.clips:
+        end = max(
+            c.timeline_position + (c.out - c.in_) / (c.speed or 1.0)
+            for c in edit.clips
+        )
+        if end < template.total_duration - cfg.beat_tolerance_sec:
+            violations.append(
+                f"AgentB length: assembled {end:.3f}s < template "
+                f"{template.total_duration:.3f}s"
+            )
+
+    return violations
+
+
+def assemble(
+    template: Template,
+    asset_db: AssetDB,
+    cfg: "Thresholds | None" = None,
+) -> "EditInstruction | Reject":
+    """Orchestrate Agent A -> Agent B -> (Fallback).
+
+    RULE 7 input gate, then Agent A assembles a candidate, then Agent B fact-checks
+    it once (RULE 12, 1-Hit). On rejection there is NO re-search -- control passes to
+    Fallback. Fallback is the next task, so a rejected candidate currently surfaces as
+    a Reject(AGENT_B_REJECTED) placeholder.
+    """
+    cfg = cfg or Thresholds.load()
+
+    # RULE 7: abuse floor -- not enough total source to honestly fill anything.
+    if invariants.is_source_insufficient(asset_db, cfg):
+        total = invariants.total_segment_seconds(asset_db)
+        return Reject(
+            code="SOURCE_INSUFFICIENT",
+            reason=(
+                f"total source {total:.3f}s is below the minimum "
+                f"{cfg.min_source_total_sec:.3f}s required to assemble a fallback"
+            ),
+        )
+
+    candidate = _agent_a_assemble(template, asset_db, cfg)
+
+    violations = agent_b_validate(template, candidate, cfg)
+    if not violations:
+        return candidate
+
+    # RULE 12: 1-Hit -- no second search. Fallback (next task) will intercept here.
+    return Reject(code="AGENT_B_REJECTED", reason="; ".join(violations))

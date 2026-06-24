@@ -144,3 +144,22 @@ def scenario_obvious_winner() -> tuple[Template, AssetDB]:
         ]
     )
     return t, a
+
+
+def scenario_offbeat_strict() -> tuple[Template, AssetDB]:
+    """A strict template whose 2nd transition (1.5s) lands off every beat
+    {0, 2, 4}. Agent A pins it there mechanically, but Agent B (RULE 12,
+    +/- beat_tolerance) must reject -> control would pass to Fallback."""
+    t = Template(
+        template_id="t_offbeat",
+        total_duration=4.0,
+        bpm=120,
+        beat_timestamps=[0.0, 2.0, 4.0],  # no beat near 1.5
+        cuts=[
+            _cut(1, 0.0, 1.5, "strict"),  # transition at 0.0 -> on beat
+            _cut(2, 1.5, 2.5, "strict"),  # transition at 1.5 -> 0.5s off nearest beat
+        ],
+    )
+    a = AssetDB(assets=[Asset(clip_id="c", file_name="c.mp4", duration=30.0,
+                              segments=[_seg("c0", 30.0, [1, 0, 0, 0, 0])])])
+    return t, a

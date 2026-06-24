@@ -26,5 +26,5 @@
 - **무엇:** 도메인 비종속 **의미 기반 Fallback 할당 엔진**(Core). 유행 숏폼의 편집 문법을 사용자 실촬영본으로 재현. 포폴용.
 - **포지셔닝:** 생성형(Bluma 등)이 아니라 **실촬영본 채우기**(2026 AI영상 반감/진정성 프리미엄 데이터 근거). 검증 스코프는 국내 푸드 쇼츠로 한정, 아키텍처는 도메인 비종속.
 - **방법론:** 하네스 우선. 오라클(불변식+합성 forced 케이스+config 노브)을 먼저 세우고, 엔진을 그 green/red 신호에 대고 test-first로 수렴. 단단함 등급은 [decisions/schema_contradictions.md](decisions/schema_contradictions.md) 참조.
-- **진행:** STEP 1(모순 결정)✅ → STEP 2(오라클)✅ → STEP 3(Core Engine: 트렁크 + RULE6 semantic 코사인)✅ `10 passed`. **다음 후보:** Agent B 1-Hit 검증 + Fallback 강제할당, 그 다음 Yellow 추출. (한 번에 하나.)
+- **진행:** STEP 1✅ → STEP 2(오라클)✅ → STEP 3(Agent A: 3축 스코어링/RULE6, Soft Penalty/RULE10)✅ → STEP 3c(Agent B: 1-Hit 비트 검증/RULE12, 서사모드 bypass)✅ `12 passed`. **다음:** Fallback 강제할당(RULE11/12) — Agent B 반려 시 오디오 리듬 기준 강제. 그 다음 Yellow 추출. (한 번에 하나.)
 - **스택/스코프 경계:** Python/pydantic. 플랫폼=YouTube Shorts 전용(IG/TikTok 안티봇 제외). 스코프 밖(현재 미구현·건드리지 말 것): speed_ramp, Cascading Shift, RULE11 슬라이더 실모델 보정, 실제 임베딩/VLM 모델, Yellow/Blue/Pink 파이프라인.
