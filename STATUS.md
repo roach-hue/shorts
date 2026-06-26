@@ -1,7 +1,7 @@
 # 📍 STATUS — 프로젝트 총정리
 
 > 지금까지 한 번도 안 봤어도, **이 문서 하나면 현재 상태가 전부 파악**되게 썼습니다.
-> 기준 커밋: `d25cdc1` · 저장소: https://github.com/roach-hue/shorts (public)
+> 기준 커밋: `347a88e` · 저장소: https://github.com/roach-hue/shorts (public)
 
 ---
 
@@ -9,17 +9,17 @@
 
 - **무엇:** 유행 숏폼의 _편집 문법_(컷 타이밍/비트/자막 구조)을 추출해, **사용자가 가진 실제 촬영본**을 그 빈칸에 의미 기반으로 자동 배치하는 엔진. 회사 포폴용.
 - **진짜 IP:** "유저 영상을 박자표에 수학적으로 맞춰주는 다중 에이전트 매칭"(Agent A→B→Fallback). 나머지(영상 추출/브라우저/렌더)는 이미 상품화돼서 차별점 아님.
-- **지금 상태:** 핵심 엔진 **Agent A(매칭) + Agent B(검증) + Fallback(무중단)까지 동작, 테스트 15개 green.** A→B→Fallback 루프 완성. 모든 단계는 **파일에 로깅**(logs/).
-- **다음:** 로그로 **Fallback 약점 refine**(현재 best-effort라 구조적 문제는 못 고침), 그 뒤 Yellow/Blue/Pink.
+- **지금 상태:** 핵심 엔진 **Agent A(매칭) + Agent B(검증) + Fallback(무중단·정직표시·발산관측)까지 동작, 테스트 17개 green.** A→B→Fallback 루프 완성. 모든 단계는 **파일에 로깅**(logs/), 구간별 검증 리포트는 [reports/](reports/CONVENTION.md).
+- **다음:** Fallback refine(정직 표시 + 발산 관측) 완료. 다음은 **Yellow/Blue/Pink** (또는 비트스냅 = Cascading Shift 스코프 결정).
 
 ## 0. 직접 확인하는 법 (1분)
 
 ```bash
 cd c:\simhwa\shorts
-python -m pytest          # => 15 passed
+python -m pytest          # => 17 passed
 ```
 
-초록 15개 뜨면 정상. 코드는 [src/fallback_engine/](src/fallback_engine/), 테스트는 [tests/](tests/).
+초록 17개 뜨면 정상. 코드는 [src/fallback_engine/](src/fallback_engine/), 테스트는 [tests/](tests/).
 
 ---
 
@@ -42,10 +42,11 @@ python -m pytest          # => 15 passed
 | 3 (Agent A)   | 3축 스코어링(RULE6) + 슬롯순서고정(RULE4) + Soft Penalty(RULE10) + strict 채우기(RULE8/12) | ✅        |
 | 3c (Agent B)  | 1-Hit 비트 검증(RULE12), 서사모드 bypass                                                   | ✅        |
 | 3d (Fallback) | 반려 시 리듬-only 강제할당(무중단) + 파일 로깅(logs/)                                       | ✅        |
-| **다음**      | 로그로 Fallback 약점 refine                                                                | ⏸         |
-| 이후          | Yellow(추출) / Blue(브라우저) / Pink(렌더)                                                 | ⬜ 미착수 |
+| 3d-1/3d-2     | Fallback refine — sync 깨짐 정직표시(RULE13) + 발산 관측(다후보 골든)                       | ✅        |
+| **다음**      | Yellow(추출) — 또는 비트스냅(Cascading Shift 스코프 결정)                                   | ⏸         |
+| 이후          | Blue(브라우저) / Pink(렌더)                                                                | ⬜ 미착수 |
 
-**테스트: 15 passed.** 핵심 엔진(A→B→Fallback) 동작 + 모든 실행이 파일에 로깅됨.
+**테스트: 17 passed.** 핵심 엔진(A→B→Fallback) 동작 + 모든 실행이 파일에 로깅됨.
 
 ---
 

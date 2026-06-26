@@ -50,3 +50,4 @@ YYYY-MM-DD_HHMM_STEP<x>_<슬러그>.md
 | 2026-06-24 23:15 | 3c   | [Agent B 검증](2026-06-24_2315_STEP3c_agent-b-validation.md) | 12 passed         |
 | 2026-06-26 21:19 | 3d   | [Fallback + 로깅](2026-06-26_2119_STEP3d_fallback-and-logging.md) | 15 passed     |
 | 2026-06-26 21:40 | 3d-1 | [sync 깨짐 표시](2026-06-26_2140_STEP3d-1_sync-broken-flag.md) | 16 passed        |
+| 2026-06-26 21:50 | 3d-2 | [발산 관측](2026-06-26_2150_STEP3d-2_fallback-divergence.md)   | 17 passed        |
