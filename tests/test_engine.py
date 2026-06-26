@@ -8,6 +8,8 @@ from fallback_engine.engine import agent_b_validate, assemble
 from fallback_engine.invariants import check_all
 from fallback_engine.schemas import EditInstruction, Reject
 from fixtures import (
+    scenario_diverge_offbeat,
+    scenario_diverge_onbeat,
     scenario_forced_reuse,
     scenario_obvious_winner,
     scenario_offbeat_strict,
@@ -72,3 +74,20 @@ def test_fallback_flags_sync_broken():
     assert all(c.fallback_used for c in result.clips)
     assert result.is_original_sync_broken is True
     assert check_all(t, a, result, CFG) == []  # invariant agrees the flag is correct
+
+
+def test_fallback_diverges_from_agent_a():
+    # Same candidates: Agent A (semantic) prefers the semantic match; Fallback
+    # (rhythm-only) prefers the high-motion one. Proves Fallback genuinely chooses
+    # differently when it has options -- it is not a no-op clone of Agent A.
+    t_on, a = scenario_diverge_onbeat()
+    r_on = assemble(t_on, a, CFG)
+    assert not any(c.fallback_used for c in r_on.clips)  # Agent A path (on-beat)
+    assert r_on.clips[0].seg_id == "semantic_pick"
+
+    t_off, a2 = scenario_diverge_offbeat()
+    r_off = assemble(t_off, a2, CFG)
+    assert all(c.fallback_used for c in r_off.clips)  # Fallback path (off-beat)
+    assert r_off.clips[0].seg_id == "motion_pick"
+
+    assert r_on.clips[0].seg_id != r_off.clips[0].seg_id  # divergence proven

@@ -163,3 +163,35 @@ def scenario_offbeat_strict() -> tuple[Template, AssetDB]:
     a = AssetDB(assets=[Asset(clip_id="c", file_name="c.mp4", duration=30.0,
                               segments=[_seg("c0", 30.0, [1, 0, 0, 0, 0])])])
     return t, a
+
+
+def _diverge_assets() -> AssetDB:
+    """Two candidates with opposite strengths: 'semantic_pick' nails the cut vector
+    but has low motion; 'motion_pick' has no semantic match but high motion. Forces
+    Agent A (semantic) and Fallback (rhythm-only) to choose differently."""
+    return AssetDB(assets=[Asset(clip_id="c", file_name="c.mp4", duration=20.0, segments=[
+        _seg("semantic_pick", 5.0, [1, 0, 0, 0, 0], motion=0.1, shot="close_up"),
+        _seg("motion_pick", 5.0, [0, 0, 0, 0, 1], motion=0.95, shot="wide", objects=("crowd",)),
+    ])])
+
+
+def scenario_diverge_onbeat() -> tuple[Template, AssetDB]:
+    """On-beat cut wanting [1,0,0,0,0] + high motion -> Agent B passes -> Agent A's
+    pick (the semantic match) stands."""
+    t = Template(
+        template_id="t_div_on", total_duration=1.0, bpm=120, beat_timestamps=[0.0, 1.0],
+        cuts=[_cut(1, 0.0, 1.0, "strict", semantic_vector=[1, 0, 0, 0, 0],
+                   visual=_vis("close_up", ("food",), "high"))],
+    )
+    return t, _diverge_assets()
+
+
+def scenario_diverge_offbeat() -> tuple[Template, AssetDB]:
+    """Same candidates, but the transition (0.5s) is off every beat -> Agent B rejects
+    -> Fallback (rhythm-only) picks the high-motion segment instead."""
+    t = Template(
+        template_id="t_div_off", total_duration=1.5, bpm=120, beat_timestamps=[0.0, 5.0],
+        cuts=[_cut(1, 0.5, 1.0, "strict", semantic_vector=[1, 0, 0, 0, 0],
+                   visual=_vis("close_up", ("food",), "high"))],
+    )
+    return t, _diverge_assets()

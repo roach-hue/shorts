@@ -165,9 +165,18 @@ def assemble(template: Template, asset_db: AssetDB, cfg: "Thresholds | None" = N
             is_original_sync_broken=fb.is_original_sync_broken,
             offbeat_slots=[s for s, _ in offbeat])
 
+    # Divergence observation: did rhythm-only actually choose differently from Agent A?
+    # (With a single candidate per slot it cannot -- that is the honest weakness.)
+    a_pick = {c.slot_id: c.seg_id for c in candidate.clips}
+    diverged = [c.slot_id for c in fb.clips if a_pick.get(c.slot_id) != c.seg_id]
+    tr.step("fallback_divergence", "ok", diverged=bool(diverged), slots=diverged,
+            agent_a=[[c.slot_id, c.seg_id] for c in candidate.clips],
+            fallback=[[c.slot_id, c.seg_id] for c in fb.clips])
+
     tr.finish("FALLBACK", {"why": violations,
                            "how": "rhythm-only forced allocation (semantic dropped)",
                            "fallback_used": True,
                            "is_original_sync_broken": fb.is_original_sync_broken,
+                           "diverged_from_agent_a": bool(diverged),
                            "picks": [[c.slot_id, c.seg_id] for c in fb.clips]})
     return fb
