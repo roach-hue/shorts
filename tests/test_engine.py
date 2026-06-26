@@ -46,6 +46,7 @@ def test_agent_b_passes_on_beat_assembly():
     result = assemble(t, a, CFG)
     assert agent_b_validate(t, result, CFG) == []          # no rhythm violations
     assert not any(c.fallback_used for c in result.clips)  # success path, not fallback
+    assert result.is_original_sync_broken is False         # on-beat -> sync intact
 
 
 def test_offbeat_triggers_fallback():
@@ -61,3 +62,13 @@ def test_sufficient_source_never_rejects():
     for scenario in (scenario_forced_reuse, scenario_obvious_winner, scenario_offbeat_strict):
         t, a = scenario()
         assert isinstance(assemble(t, a, CFG), EditInstruction)
+
+
+def test_fallback_flags_sync_broken():
+    # RULE 13: when Fallback cannot put a structurally off-beat template back on the
+    # beat, it must honestly flag is_original_sync_broken (so Pink can warn the user).
+    t, a = scenario_offbeat_strict()
+    result = assemble(t, a, CFG)
+    assert all(c.fallback_used for c in result.clips)
+    assert result.is_original_sync_broken is True
+    assert check_all(t, a, result, CFG) == []  # invariant agrees the flag is correct

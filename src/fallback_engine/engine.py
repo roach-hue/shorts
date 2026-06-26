@@ -106,18 +106,11 @@ def agent_b_validate(template, edit, cfg) -> list[str]:
     template beat (+/- tolerance); flexible slots bypass; the timeline must reach the
     template length. Returns violations (empty == accepted)."""
     violations: list[str] = []
-    cut_by_id = {c.cut_id: c for c in template.cuts}
-    beats = template.beat_timestamps
-    for clip in edit.clips:
-        cut = cut_by_id.get(clip.slot_id)
-        if cut is None or cut.slot_mode != "strict":
-            continue  # flexible mode: beat check bypassed
-        if beats:
-            nearest = min(abs(clip.timeline_position - b) for b in beats)
-            if nearest > cfg.beat_tolerance_sec:
-                violations.append(
-                    f"slot {clip.slot_id} transition {clip.timeline_position:.3f}s is "
-                    f"{nearest:.3f}s off the nearest beat (> {cfg.beat_tolerance_sec}s)")
+    # Beat check via the shared helper (strict only; flexible slots are skipped inside).
+    for slot_id, offset in invariants.offbeat_strict_slots(template, edit, cfg):
+        violations.append(
+            f"slot {slot_id} transition is {offset:.3f}s off the nearest beat "
+            f"(> {cfg.beat_tolerance_sec}s)")
     if edit.clips:
         end = max(c.timeline_position + (c.out - c.in_) / (c.speed or 1.0) for c in edit.clips)
         if end < template.total_duration - cfg.beat_tolerance_sec:
@@ -163,8 +156,18 @@ def assemble(template: Template, asset_db: AssetDB, cfg: "Thresholds | None" = N
     # RULE 12 1-Hit: no re-search. Fallback drops semantic, fills by rhythm, never rejects.
     tr.step("agent_b", "fail", violations=violations)
     fb = _allocate(template, asset_db, cfg, use_semantic=False, fallback_used=True, tr=tr)
+
+    # RULE 13: Fallback fills by rhythm but cannot fix a structurally off-beat template.
+    # If the result is still off-beat, honestly flag broken sync (so Pink can warn).
+    offbeat = invariants.offbeat_strict_slots(template, fb, cfg)
+    fb.is_original_sync_broken = bool(offbeat)
+    tr.step("sync_check", "fail" if offbeat else "ok",
+            is_original_sync_broken=fb.is_original_sync_broken,
+            offbeat_slots=[s for s, _ in offbeat])
+
     tr.finish("FALLBACK", {"why": violations,
                            "how": "rhythm-only forced allocation (semantic dropped)",
                            "fallback_used": True,
+                           "is_original_sync_broken": fb.is_original_sync_broken,
                            "picks": [[c.slot_id, c.seg_id] for c in fb.clips]})
     return fb

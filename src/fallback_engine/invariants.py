@@ -9,7 +9,7 @@ Mapping (see schema_decisions.md / decisions/schema_contradictions.md):
   RULE 7  -> is_source_insufficient        (abuse-floor reject gate)
   RULE 8  -> inv_strict_slot_pinned        (strict slot fills its duration)
   RULE 12 -> inv_strict_slot_pinned        (strict slot pinned to beat position)
-  RULE 13 -> inv_sync_broken_flag          (sync-broken flag <=> any re_sync)
+  RULE 13 -> inv_sync_broken_flag          (sync-broken flag <=> re_sync OR off-beat)
   (3)     -> inv_speed_scalar_positive     (speed is a positive scalar)
 """
 from __future__ import annotations
@@ -29,6 +29,27 @@ def total_segment_seconds(asset_db: AssetDB) -> float:
 def is_source_insufficient(asset_db: AssetDB, cfg: Thresholds) -> bool:
     """RULE 7 abuse gate: total user source below the absolute floor -> Reject."""
     return total_segment_seconds(asset_db) < cfg.min_source_total_sec
+
+
+def offbeat_strict_slots(
+    template: Template, edit: EditInstruction, cfg: Thresholds
+) -> list[tuple[int, float]]:
+    """[(slot_id, offset_sec)] for strict clips whose transition lands off every
+    template beat (> beat_tolerance). The single source of truth for "is the rhythm
+    intact?" -- shared by Agent B, the sync-broken flag, and the RULE 13 invariant."""
+    result: list[tuple[int, float]] = []
+    cut_by_id = {c.cut_id: c for c in template.cuts}
+    beats = template.beat_timestamps
+    if not beats:
+        return result
+    for clip in edit.clips:
+        cut = cut_by_id.get(clip.slot_id)
+        if cut is None or cut.slot_mode != "strict":
+            continue
+        nearest = min(abs(clip.timeline_position - b) for b in beats)
+        if nearest > cfg.beat_tolerance_sec:
+            result.append((clip.slot_id, nearest))
+    return result
 
 
 # --------------------------------------------------------------------------- #
@@ -93,13 +114,20 @@ def inv_strict_slot_pinned(
     return v
 
 
-def inv_sync_broken_flag(result: EditInstruction) -> list[str]:
-    """RULE 13: is_original_sync_broken is true iff any clip was re-synced."""
-    any_resync = any(c.re_sync_applied for c in result.clips)
-    if result.is_original_sync_broken != any_resync:
+def inv_sync_broken_flag(
+    template: Template, result: EditInstruction, cfg: Thresholds
+) -> list[str]:
+    """RULE 13: is_original_sync_broken is true iff the output's rhythm is compromised
+    -- by a Cascading Shift (any re_sync_applied) OR by an off-beat strict slot that
+    Fallback could not fix. The flag must honestly reflect that state."""
+    expected = (
+        any(c.re_sync_applied for c in result.clips)
+        or bool(offbeat_strict_slots(template, result, cfg))
+    )
+    if result.is_original_sync_broken != expected:
         return [
             f"RULE13: is_original_sync_broken={result.is_original_sync_broken} "
-            f"but re_sync_applied(any)={any_resync}"
+            f"but expected {expected} (re_sync or off-beat strict slot)"
         ]
     return []
 
@@ -127,6 +155,6 @@ def check_all(
     v += inv_all_slots_filled(template, result)
     v += inv_timeline_monotonic(result)
     v += inv_strict_slot_pinned(template, result, cfg)
-    v += inv_sync_broken_flag(result)
+    v += inv_sync_broken_flag(template, result, cfg)
     v += inv_speed_scalar_positive(result)
     return v
