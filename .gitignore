@@ -17,3 +17,6 @@ Thumbs.db
 
 # local agent settings (keep skills + project docs tracked)
 .claude/settings.local.json
+
+# runtime engine trace logs/dumps
+logs/
